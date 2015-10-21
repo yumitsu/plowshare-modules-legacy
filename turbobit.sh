@@ -197,7 +197,7 @@ turbobit_download() {
 
     # Download xyz. Free download without registration from TurboBit.net
     FILE_NAME=$(echo "$PAGE" | parse '<title>' \
-        '^[[:blank:]]*Download \(.\+\). Free' 1) || return
+        '^[[:blank:]]*Download file \(.\+\) (.\+\? .b)' 1) || return
 
     if [ -n "$AUTH" ]; then
         ACCOUNT=$(turbobit_login "$AUTH" "$COOKIE_FILE" \
@@ -332,11 +332,13 @@ turbobit_download() {
     wait $((WAIT + 1)) || return
 
     PAGE_LINK=$(echo "$PAGE" | parse '/download/' '"\([^"]\+\)"') || return
+    log_debug "PAGE_LINK: $PAGE_LINK"
 
     # Get the page containing the file url
     PAGE=$(curl -b "$COOKIE_FILE" --referer "$FREE_URL" \
         --header 'X-Requested-With: XMLHttpRequest'     \
         "$BASE_URL$PAGE_LINK") || return
+    log_debug "FILE_XHR_URL: $BASE_URL$PAGE_LINK"
 
     # Sanity check
     if match 'code-404\|text-404' "$PAGE"; then
@@ -346,11 +348,13 @@ turbobit_download() {
 
     FILE_URL=$(echo "$PAGE" | parse_attr '/download/redirect/' 'href') || return
     FILE_URL="$BASE_URL$FILE_URL"
+    log_debug "FILE_URL: $FILE_URL"
 
     # Redirects 2 times...
-    FILE_URL=$(curl -b "$COOKIE_FILE" --head "$FILE_URL" | \
+    # How could you forget about referer?
+    FILE_URL=$(curl -b "$COOKIE_FILE" --referer "$FREE_URL" --head "$FILE_URL" | \
         grep_http_header_location) || return
-    FILE_URL=$(curl -b "$COOKIE_FILE" --head "$FILE_URL" | \
+    FILE_URL=$(curl -b "$COOKIE_FILE" --referer "$FREE_URL" --head "$FILE_URL" | \
         grep_http_header_location) || return
 
     echo "$FILE_URL"
